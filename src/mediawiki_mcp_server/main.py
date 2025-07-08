@@ -1,7 +1,9 @@
 import argparse
 import os
+import urllib.request
+import urllib.parse
+import json
 
-import httpx
 from loguru import logger
 from mcp.server.fastmcp import FastMCP
 
@@ -9,8 +11,8 @@ USER_AGENT = "mediawiki-mcp-server/1.0"
 
 
 class Config:
-    base_url = "https://en.wikipedia.org/w/"
-    path_prefix = "rest.php/v1/"
+    base_url = "https://coppermind.net/w/"
+    path_prefix = "api.php"
 
 
 config = Config()
@@ -24,31 +26,32 @@ def get_proxy_settings():
     return http_proxy
 
 
-# helper function to make a request to the mediawiki api
-async def make_request(path: str, params: dict) -> httpx.Response:
-    headers = {
-        "User-Agent": USER_AGENT,
-    }
-    url = config.base_url + config.path_prefix + path
-    proxies = get_proxy_settings()
-    async with httpx.AsyncClient(proxies=proxies, follow_redirects=True) as client:
-        try:
-            response = await client.get(url, headers=headers, params=params)
-            if response.status_code in (301, 302, 303, 307, 308):
-                final_response = await client.get(
-                    response.headers["Location"], headers=headers
-                )
-                return final_response.json()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            logger.error(e)
-            return {"error": e}
-
-
-# @mcp.tool()
-# async def hello(name: str) -> str:
-#     """Say hello to the user"""
-#     return f"Hello, {name}!"
+# helper function to make a request to the mediawiki action api
+async def make_request(params: dict) -> dict:
+    """Make a request to the MediaWiki Action API using urllib (bypasses CloudFlare blocking)"""
+    # Add format=json to all requests
+    params["format"] = "json"
+    
+    # Build URL with parameters
+    base_url = config.base_url + config.path_prefix
+    query_string = urllib.parse.urlencode(params)
+    full_url = f"{base_url}?{query_string}"
+    
+    # Use urllib request with headers that work with Coppermind.net
+    headers = {"User-Agent": USER_AGENT}
+    req = urllib.request.Request(full_url, headers=headers)
+    
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode())
+            return data
+    except urllib.error.HTTPError as e:
+        error_msg = f"HTTP {e.code}: {e.reason}"
+        logger.error(f"HTTP error {e.code}: {error_msg}")
+        return {"error": error_msg}
+    except Exception as e:
+        logger.error(f"Request error: {e}")
+        return {"error": str(e)}
 
 
 @mcp.tool()
@@ -61,26 +64,62 @@ async def search(query: str, limit: int = 5):
     Returns:
         A list of pages that match the query
     """
-    path = "search/page"
     params = {
-        "q": query,
-        "limit": limit,
+        "action": "query",
+        "list": "search",
+        "srsearch": query,
+        "srlimit": limit,
+        "srprop": "snippet|titlesnippet|size|timestamp",
     }
-    response = await make_request(path, params)
-    return response
+    response = await make_request(params)
+    
+    # Extract search results from Action API response
+    if "query" in response and "search" in response["query"]:
+        results = response["query"]["search"]
+        # Format results for better usability
+        formatted_results = []
+        for result in results:
+            formatted_results.append({
+                "title": result["title"],
+                "snippet": result.get("snippet", ""),
+                "size": result.get("size", 0),
+                "timestamp": result.get("timestamp", ""),
+                "pageid": result.get("pageid", 0)
+            })
+        return {"results": formatted_results}
+    else:
+        return {"error": "No search results found", "response": response}
 
 
 @mcp.tool()
 async def get_page(title: str):
-    """Get a page from mediawiki.org
+    """Get a page from the MediaWiki site
     Args:
         title: The title of the page to get, which can be found in title field of the search results
     Returns:
         The page content
     """
-    path = f"page/{title}"
-    response = await make_request(path, {})
-    return response
+    params = {
+        "action": "parse",
+        "page": title,
+        "prop": "text|displaytitle|categories|links|templates",
+        "formatversion": "2",
+    }
+    response = await make_request(params)
+    
+    # Extract page content from Action API response
+    if "parse" in response:
+        page_data = response["parse"]
+        return {
+            "title": page_data.get("displaytitle", title),
+            "html": page_data.get("text", ""),
+            "categories": page_data.get("categories", []),
+            "links": page_data.get("links", []),
+            "templates": page_data.get("templates", []),
+            "pageid": page_data.get("pageid", 0)
+        }
+    else:
+        return {"error": "Page not found or could not be parsed", "response": response}
 
 
 def main():
