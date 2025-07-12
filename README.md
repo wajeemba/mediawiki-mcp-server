@@ -67,6 +67,47 @@ Or, if you want to run this server from source:
 }
 ```
 
+### Claude Desktop Configuration 🖥️
+
+To use this MCP server with Claude Desktop, add the following configuration to your Claude Desktop config file:
+
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+#### Using Python directly (recommended for development):
+
+```json
+{
+  "mcpServers": {
+    "mediawiki-mcp-server": {
+      "command": "python",
+      "args": ["/path/to/your/project/src/mediawiki_mcp_server/main.py"],
+      "env": {}
+    }
+  }
+}
+```
+
+#### Using uvx (if installed via pip/uvx):
+
+```json
+{
+  "mcpServers": {
+    "mediawiki-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "mediawiki-mcp-server",
+        "--base-url", "https://your-wiki-site.com/"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+**Note**: Replace `/path/to/your/project/` with the actual path to your cloned repository. After updating the config file, restart Claude Desktop for the changes to take effect.
+
 ## Supported Tools 🛠
 
 ### Search

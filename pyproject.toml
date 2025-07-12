@@ -14,8 +14,38 @@ dependencies = [
     "mcp[cli]>=1.6.0",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
+    "pytest-benchmark>=4.0",
+    "pytest-mock>=3.12",
+]
+
 [project.scripts]
 mediawiki-mcp-server = "mediawiki_mcp_server.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mediawiki_mcp_server"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/mediawiki_mcp_server",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "-v",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "canon: marks tests as canon validation tests",
+    "performance: marks tests as performance tests",
+]

@@ -8,3 +8,28 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.benchmarks/
+
+# Development artifacts
+.python-version
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
