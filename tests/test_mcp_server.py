@@ -6,7 +6,7 @@ import asyncio
 from typing import Dict, List, Any
 import time
 
-from mediawiki_mcp_server.main import search, get_page, make_request
+from mediawiki_mcp_server.main import search, get_page, make_request, get_server_info, help
 
 
 class TestBasicFunctionality:
@@ -71,6 +71,94 @@ class TestBasicFunctionality:
         # Should handle non-existent page gracefully
         assert isinstance(result, dict), "Expected dict response for non-existent page"
         assert "error" in result, "Expected error for non-existent page"
+
+
+class TestSelfDocumentation:
+    """Test self-documentation functionality"""
+    
+    @pytest.mark.asyncio
+    async def test_get_server_info(self):
+        """Test server info function"""
+        result = await get_server_info()
+        
+        assert "server_name" in result, "Expected server_name in server info"
+        assert "server_version" in result, "Expected server_version in server info"
+        assert "wiki_info" in result, "Expected wiki_info in server info"
+        assert "purpose" in result, "Expected purpose in server info"
+        
+        # Check wiki info structure
+        wiki_info = result["wiki_info"]
+        assert "name" in wiki_info, "Expected name in wiki_info"
+        assert "url" in wiki_info, "Expected url in wiki_info"
+        assert "main_page" in wiki_info, "Expected main_page in wiki_info"
+        
+        # Check that purpose mentions Cosmere/DM
+        assert "Cosmere" in result["purpose"], "Expected purpose to mention Cosmere"
+        assert "DM" in result["purpose"] or "Dungeon Master" in result["purpose"], "Expected purpose to mention DM"
+    
+    @pytest.mark.asyncio
+    async def test_help_function_all(self):
+        """Test help function without arguments (all functions)"""
+        result = await help()
+        
+        assert "server_info" in result, "Expected server_info in help"
+        assert "available_functions" in result, "Expected available_functions in help"
+        assert "workflow_example" in result, "Expected workflow_example in help"
+        assert "dm_tips" in result, "Expected dm_tips in help"
+        
+        # Check that it includes all expected functions
+        functions = result["available_functions"]
+        assert "search" in functions, "Expected search in available functions"
+        assert "get_page" in functions, "Expected get_page in available functions"
+        assert "help" in functions, "Expected help in available functions"
+        assert "get_server_info" in functions, "Expected get_server_info in available functions"
+        
+        # Check function info structure (dynamic parsing)
+        for func_name, func_info in functions.items():
+            assert "description" in func_info, f"Expected description in {func_name}"
+            assert "signature" in func_info, f"Expected signature in {func_name}"
+            assert "parameters" in func_info, f"Expected parameters in {func_name}"
+            assert "returns" in func_info, f"Expected returns in {func_name}"
+            assert "example" in func_info, f"Expected example in {func_name}"
+        
+        # Check workflow example structure
+        workflow = result["workflow_example"]
+        assert "step_1" in workflow, "Expected step_1 in workflow"
+        assert "step_2" in workflow, "Expected step_2 in workflow"
+        
+        # Check DM tips
+        dm_tips = result["dm_tips"]
+        assert isinstance(dm_tips, list), "Expected dm_tips to be a list"
+        assert len(dm_tips) > 0, "Expected at least one DM tip"
+    
+    @pytest.mark.asyncio
+    async def test_help_function_specific(self):
+        """Test help function with specific function name"""
+        result = await help("search")
+        
+        assert "function" in result, "Expected function name in specific help"
+        assert "description" in result, "Expected description in specific help"
+        assert "signature" in result, "Expected signature in specific help"
+        assert "parameters" in result, "Expected parameters in specific help"
+        assert "returns" in result, "Expected returns in specific help"
+        assert "example" in result, "Expected example in specific help"
+        
+        assert result["function"] == "search", "Expected function name to be 'search'"
+        assert "search(" in result["signature"], "Expected signature to contain search function"
+        assert "query" in result["signature"], "Expected signature to contain query parameter"
+    
+    @pytest.mark.asyncio
+    async def test_help_function_nonexistent(self):
+        """Test help function with non-existent function name"""
+        result = await help("nonexistent_function")
+        
+        assert "error" in result, "Expected error for non-existent function"
+        assert "available_functions" in result, "Expected available_functions list in error"
+        
+        # Should list actual available functions
+        available = result["available_functions"]
+        assert "search" in available, "Expected search in available functions list"
+        assert "get_page" in available, "Expected get_page in available functions list"
 
 
 class TestCanonValidation:
@@ -174,6 +262,20 @@ class TestPerformance:
             f"API request took {elapsed:.2f}s, expected < {performance_thresholds['api_request_max_time']}s"
         
         assert "query" in result, "Expected successful API request within time limit"
+    
+    @pytest.mark.performance
+    @pytest.mark.asyncio
+    async def test_help_performance(self, performance_thresholds):
+        """Test help function performance"""
+        start_time = time.time()
+        
+        result = await help()
+        
+        elapsed = time.time() - start_time
+        
+        # Help should be very fast since it's local
+        assert elapsed < 0.5, f"Help took {elapsed:.2f}s, expected < 0.5s"
+        assert "available_functions" in result, "Expected successful help within time limit"
 
 
 class TestErrorHandling:
@@ -234,6 +336,28 @@ class TestIntegration:
         
         assert "html" in page_result, "Expected page content"
         assert page_result["title"] == first_result["title"], "Page title should match search result"
+    
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_help_then_use_functions(self):
+        """Test using help to discover and then use functions"""
+        # Get help information
+        help_result = await help()
+        
+        assert "available_functions" in help_result, "Expected available functions in help"
+        
+        # Verify we can use the functions mentioned in help
+        functions = help_result["available_functions"]
+        
+        # Test search function
+        if "search" in functions:
+            search_result = await search("Kaladin", 1)
+            assert "results" in search_result, "Expected search to work as documented"
+        
+        # Test get_page function
+        if "get_page" in functions:
+            page_result = await get_page("Kaladin")
+            assert "html" in page_result, "Expected get_page to work as documented"
     
     @pytest.mark.integration
     @pytest.mark.asyncio
