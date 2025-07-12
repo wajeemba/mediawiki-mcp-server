@@ -1,36 +1,20 @@
 """
 Configuration management for Feruchemist MCP Server
-Supports development and production environments
 """
 import os
 from pathlib import Path
-from typing import Optional
 
 
 class Config:
-    """Configuration class supporting multiple environments"""
+    """Simple configuration class"""
     
-    def __init__(self, environment: Optional[str] = None):
-        self.environment = environment or os.getenv("FERUCHEMIST_ENV", "development")
+    def __init__(self):
         self.base_url = "https://coppermind.net/w/"
         self.path_prefix = "api.php"
         
-        # Environment-specific settings
-        if self.environment == "production":
-            self.cards_dir = Path.home() / ".cosmere_dm" / "cards"
-            self.log_level = "INFO"
-            self.cache_ttl = 3600  # 1 hour
-        else:  # development
-            self.cards_dir = Path.home() / ".cosmere_dm" / "cards_dev"
-            self.log_level = "DEBUG"
-            self.cache_ttl = 300   # 5 minutes
-        
-        # Ensure cards directory exists
+        # Cards storage - single shared location
+        self.cards_dir = Path.home() / ".cosmere_dm" / "cards"
         self.cards_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Environment variable overrides
-        self.cards_dir = Path(os.getenv("FERUCHEMIST_CARDS_DIR", str(self.cards_dir)))
-        self.log_level = os.getenv("FERUCHEMIST_LOG_LEVEL", self.log_level)
         
     def get_card_path(self, card_type: str, card_id: str) -> Path:
         """Get the full path for a card file"""
@@ -43,4 +27,5 @@ class Config:
         return type_dir
         
     def __repr__(self):
+        return f"Config(base_url='{self.base_url}', cards_dir='{self.cards_dir}')"
  
