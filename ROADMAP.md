@@ -96,7 +96,7 @@ Human readable for local use/MVP:
 
 **Phase 2: Project Independence**
 - [ ] Break away from upstream MediaWiki MCP repo
-- [ ] Rename project to "Keeper MCP" (working title) - We're pulling information out of the Coppermind... :)
+- [ ] Rename project to "Feruchemist MCP" (working title) - We're pulling information out of the Coppermind... :)
 - [ ] Update README, documentation, and package metadata
 - [ ] Set up independent repository and version control
 
